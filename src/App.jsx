@@ -133,7 +133,7 @@ const ParabolicRecoveryDashboard = ({ top500 }) => {
     setAnalyzing(true);
     setPatterns([]);
     let found = [];
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 20; // Plus petits lots
     
     for (let i = 0; i < top500.length; i += BATCH_SIZE) {
       const batch = top500.slice(i, i + BATCH_SIZE);
@@ -154,7 +154,13 @@ const ParabolicRecoveryDashboard = ({ top500 }) => {
         setPatterns([...found].sort((a, b) => b.pattern.breakoutPercent - a.pattern.breakoutPercent));
       }
       setProgress(Math.floor(((i + BATCH_SIZE) / top500.length) * 100));
-      await new Promise(r => setTimeout(r, 500));
+      
+      // Respiration pour éviter le blocage de l'API / des Proxys
+      if ((i + BATCH_SIZE) % 100 === 0) {
+        await new Promise(r => setTimeout(r, 5000)); // Pause de 5 secondes tous les 100 tokens
+      } else {
+        await new Promise(r => setTimeout(r, 1000)); // Pause de 1 seconde entre chaque lot de 20
+      }
     }
     setAnalyzing(false);
     setProgress(100);
