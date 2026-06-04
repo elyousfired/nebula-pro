@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Target, LayoutDashboard, Radar, Activity, Settings } from 'lucide-react';
 import { createChart, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
 import { fetchTop500Symbols, fetchDailyMacro } from './logic/scanner';
+import { bybitWS } from './logic/bybitWS';
 
 const TradingViewChart = ({ symbol, initialTrajectory, hh, parabolaCurve }) => {
   const chartContainerRef = useRef(null);
@@ -105,8 +106,32 @@ const TradingViewChart = ({ symbol, initialTrajectory, hh, parabolaCurve }) => {
       volumeSeriesRef.current.setData(volumeData);
     }
 
+    const handleLiveData = (k) => {
+      if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
+      
+      const time = Math.floor(Number(k.start) / 1000);
+      const open = parseFloat(k.open);
+      const close = parseFloat(k.close);
+      const high = parseFloat(k.high);
+      const low = parseFloat(k.low);
+      const volume = parseFloat(k.turnover || k.volume);
+
+      candlestickSeriesRef.current.update({ time, open, high, low, close });
+      volumeSeriesRef.current.update({
+        time,
+        value: volume,
+        color: close > open ? 'rgba(0, 255, 136, 0.4)' : 'rgba(255, 42, 42, 0.4)'
+      });
+    };
+
+    bybitWS.subscribe(symbol, handleLiveData);
+
     setTimeout(() => chartRef.current?.timeScale().fitContent(), 100);
-  }, [initialTrajectory, hh, parabolaCurve]);
+
+    return () => {
+      bybitWS.unsubscribe(symbol, handleLiveData);
+    };
+  }, [initialTrajectory, hh, parabolaCurve, symbol]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -359,7 +384,10 @@ export default function App() {
 
       {/* MAIN CONTENT AREA */}
       <div style={{ flex: 1, overflowY: 'auto', height: '100vh' }}>
-        {activeSection === 'scanner' && <ParabolicRecoveryDashboard top500={top500} />}
+        <div style={{ display: activeSection === 'scanner' ? 'block' : 'none', height: '100%' }}>
+          <ParabolicRecoveryDashboard top500={top500} />
+        </div>
+        
         {activeSection !== 'scanner' && (
           <div style={{ padding: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8b9bbb' }}>
             <h2>Section {menuItems.find(m => m.id === activeSection)?.label} (En cours de développement)</h2>
